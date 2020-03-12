@@ -1,6 +1,6 @@
 import random
 import os
-
+import subprocess
 
 promela_comment_01 = """
 //Game:
@@ -173,27 +173,63 @@ proctype opponent(byte x; byte y){
     //default operation: noop
 
     if
-    :: (x > xx) && (a != 1) && (a != 3) ->
-      printf("Opponent - A\\n");
-      map[x].a[y] = 0;
-      x = x - 1;
-      map[x].a[y] = 4
-    :: (x < xx) && (d != 1) && (d != 3) ->
-      printf("Opponent - D\\n");
-      map[x].a[y] = 0;
-      x = x + 1;
-      map[x].a[y] = 4
-    :: (y > yy) && (w != 1) && (w != 3) ->
-      printf("Opponent - W\\n");
-      map[x].a[y] = 0;
-      y = y - 1;
-      map[x].a[y] = 4
-    :: (y < yy) && (s != 1) && (s != 3) ->
-      printf("Opponent - S\\n");
-      map[x].a[y] = 0;
-      y = y + 1;
-      map[x].a[y] = 4
-    :: else -> skip
+    :: (y > yy) ->
+        if
+        :: (w != 1) && (w != 3) ->
+            printf("Opponent - W\\n");
+            map[x].a[y] = 0;
+            y = y - 1;
+            map[x].a[y] = 4
+        :: else -> skip
+        fi;
+
+    :: else ->
+
+        if
+
+        :: (x > xx) ->
+            if
+            :: (a != 1) && (a != 3) ->
+                printf("Opponent - A\\n");
+                map[x].a[y] = 0;
+                x = x - 1;
+                map[x].a[y] = 4
+            :: else -> skip
+            fi;
+
+        :: else ->
+            if
+            :: (y < yy) ->
+                if
+                :: (s != 1) && (s != 3) ->
+                    printf("Opponent - S\\n");
+                    map[x].a[y] = 0;
+                    y = y + 1;
+                    map[x].a[y] = 4
+                :: else -> skip
+                fi;
+            :: else ->
+
+                if
+
+                :: (x < xx) ->
+                    if
+                    ::  (d != 1) && (d != 3) ->
+                        printf("Opponent - D\\n");
+                        map[x].a[y] = 0;
+                        x = x + 1;
+                        map[x].a[y] = 4
+                    :: else -> skip
+                    fi;
+
+                :: else -> skip
+
+                fi;
+
+            fi;
+
+        fi;
+
     fi;
 
     if
@@ -247,7 +283,11 @@ init{{
     map[{}].a[{}] = 3;
     run avatar({},{});
     run opponent({},{});
-	avatar_turn!1
+
+    opponent_turn2!1;
+    opponent_turn!{},{}
+
+	//avatar_turn!1
 }}
 """
 
@@ -264,7 +304,6 @@ class SpinClass:
     def _generate_walls(self):
         walls = []
         flag = False
-        print("q")
         for i in range(1,7):
             for ii in range(1,7):
                 if(random.random() >= 0.8):
@@ -305,7 +344,7 @@ class SpinClass:
         temp_o = ["Opponent", li[4], li[5]]
         self.list_sprites.append(temp_o)
 
-        formatted_init = promela_init.format(self._generate_walls(), li[0], li[1], li[2], li[3], li[4], li[5])
+        formatted_init = promela_init.format(self._generate_walls(), li[0], li[1], li[2], li[3], li[4], li[5], li[2], li[3])
         self.promela_whole_file = self.promela_whole_file.format(promela_comment_01, promela_comment_02, promela_header, promela_avatar_basic, promela_opponent_basic, formatted_init, promela_ltl_formula_basic)
         return self.promela_whole_file
 
@@ -320,7 +359,11 @@ class SpinClass:
         f.close()
 
         os.system("spin -a spin/temp.pml >/dev/null")
-        os.system("gcc pan.c -DREACH -o temp.out ")
+        proc = subprocess.Popen(["gcc pan.c -DREACH -o temp.out"], stdout=subprocess.PIPE, shell=True)
+        (out, err) = proc.communicate()
+        if out != b'':
+            raise IndexError("Cannot compile!")
+        #os.system("gcc pan.c -DREACH -o temp.out ")
         os.system("./temp.out -a -i -m3000 >/dev/null 2>&1")
 
 
@@ -382,7 +425,7 @@ class GenomeSpinClass(SpinClass):
                     for a in self.list_sprites:
                         if a[1] == asd and a[2] == qwe:
                             flag = True
-                    if flag is False:
+                    if flag is False and not (asd == 0 or asd == 7 or qwe == 0 or qwe == 7):
                         walls.append([asd, qwe])
                     flag = False
                 elif (i*ii) is 0: #not a wall.
@@ -390,6 +433,9 @@ class GenomeSpinClass(SpinClass):
                 else: #Should be probabilistic.
                     self.isBinary = False
                     return self.__generate_walls()
+
+        if len(walls) is 0:
+            self.wall_string = self.wall_string.format("")
 
         for wall in walls:
             self.list_sprites.append(["Wall", wall[0], wall[1]])

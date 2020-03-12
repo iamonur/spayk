@@ -102,11 +102,30 @@ class StubDBWrapper(DBWrapper): #Same class, but not query, just STDOUT.
         print(query)
 
 if __name__ == "__main__":
-    con = sqlite3.connect("asd.db")
+    con = sqlite3.connect("gen.db")
     con.isolation_level = None
     cur = con.cursor()
-    cur.execute("SELECT * FROM game WHERE spin_length=(SELECT MAX(spin_length) FROM game)")
-    print (cur.fetchall())
+    q = "SELECT COUNT(*) FROM gengame"
+    query = "SELECT MAX(fitness) FROM gengame"
+    q_max = "SELECT * FROM gengame WHERE fitness=(SELECT MAX(fitness) FROM gengame)"
+#    q = "DROP TABLE IF EXISTS gengame;"
+#    query = """CREATE TABLE gengame(
+#        id INTEGER PRIMARY KEY AUTOINCREMENT,
+#        genome_x INTEGER NOT NULL,
+#        genome_y INTEGER NOT NULL,
+#        level text NOT NULL,
+#        fitness INTEGER NOT NULL,
+#        moves text NOT NULL
+#    );"""
+    cur.execute(q)
+    print("Number of guys: {}".format(cur.fetchall()))
+    cur.execute(query)
+    print("Maximum fitness: {}".format(cur.fetchall()))
+    cur.execute(q_max)
+    print("Best game:\n{}".format(cur.fetchall()))
+    #print (cur.fetchall())
+
+
 
 #    print ("Enter your SQL commands to execute in sqlite3.")
 #    print ("Enter a blank line to exit.")
@@ -139,6 +158,16 @@ if __name__ == "__main__":
 #        win INTEGER DEFAULT 0,
 #        lose INTEGER DEFAULT 0,
 #        spin_length INTEGER
+#    );"""
+#    """CREATE TABLE gengame(
+#        id INTEGER PRIMARY KEY AUTOINCREMENT,
+#        genome_x INTEGER NOT NULL,
+#        genome_y INTEGER NOT NULL,
+#        av_pos text NOT NULL,
+#        po_pos text NOT NULL,
+#        op_pos text NOT NULL,
+#        fitness INTEGER NOT NULL,
+#        moves text NOT NULL
 #    );"""
 #    """CREATE TABLE gameplay(
 #        g_id INTEGER PRIMARY KEY AUTOINCREMENT,

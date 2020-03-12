@@ -48,18 +48,23 @@ class ParserClass:
             elif spl[0] == "MSC:":
                 continue
 
+
+
             else:
                 elem = ["LOSE", "-1"]
+                li.append(elem)
                 return li
 
         #os.system("rm {}".format())
 
     def __parse_moves(self, moves):
-
+        #print(moves)
         if len(moves) == 0:
+            print("EMPT")
             return None, None
 
-        if moves[-1][0] is "LOSE":
+        if ["LOSE", "-1"] in moves:
+            print("LOST")
             return None, None
 
         avatar = []

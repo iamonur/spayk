@@ -55,6 +55,7 @@ class GameClass:
     def __init__(self, actions_list=None, game_desc=None, level_desc=None):
 
         if actions_list is None:
+            print("WUT")
             self.actions = copy.deepcopy(dummy_actions)
         else:
             self.actions = actions_list
@@ -108,7 +109,8 @@ class GameClass:
 
     def __create_controller(self):
 
-        self.controller = RecordedController(self.env_name, self.actions, fps=1)
+        self.controller = RecordedController(self.env_name, self.actions, fps=10)
+
 
     def __save_game_files(self):
 
@@ -122,6 +124,7 @@ class GameClass:
 
     def play(self):
         self.controller.play()
+        print(self.controller.cummulative_reward)
         return self.controller.cummulative_reward
 
 if __name__ == "__main__":
