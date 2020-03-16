@@ -69,18 +69,109 @@ class SimClass:
                 print("asd")
 
 
+class NewGeneticSimClass:
+    def __init__(self, numElites=50, database=None):
+        self.numElites = numElites
+        self.numPopulation = 2*numElites
+        self.activeGeneration = []
+
+        if database is None: #Initialize the default database
+            self.dbname = "n_gen.db"
+            self.__init_connect_db()
+        else:
+            self.dbname = database
+            self.__connect_db()
+
+    def __connect_db(self):
+        self.connection = recorder.EliteSelector(self.dbname)
+
+    def __init_connect_db(self):
+
+    def generate_a_generation(self):
+        if len(self.activeGeneration) is 0:
+            while len(self.activeGeneration) < self.numPopulation:
+                self._level_gen_no_parents()
+
+        elif len(self.activeGeneration) is self.numElites:
+            for index, _ in enumerate(self.activeGeneration):
+                self._level_gen_with_parents(self.activeGeneration[index], self.activeGeneration[self.numElites - 1 - index])
+                if len(self.activeGeneration) is self.numPopulation:
+                    return
+        elif len(self.activeGeneration) is self.numPopulation:
+            self.activeGeneration = self._step_a_generation()
+            self.generate_a_generation()
+
+    def _level_gen_no_parents(self):
+        s = spinner.NewGenomeBinarySpinClass()
+        s.generate_compile_spin()
+        self.activeGeneration.append([s.genomeX, s.genomeY, s.av_genome, s.op_genome, s.po_genome 0])
+
+    def _level_gen_with_parents(self, parent1, parent2, mutationChance=0.2):
+        if random.random() > mutationChance: #This is not that cool of a crossing.
+            self.activeGeneration.append([parent1[0], parent2[1], [parent1[2][0], parent2[2][1]], [parent1[3][0], parent2[3][1]], [parent1[4][0], parent2[4][1]], 0])
+        else:
+            self.activeGeneration.append(self._level_gen_with_parents_mutated(parent1, parent2))
+
+    def _level_gen_with_parents_mutated(self, parent1, parent2):
+        cromosome = random.randint(0,7)
+        ret = [parent1[0], parent2[1], [parent1[2][0], parent2[2][1]], [parent1[3][0], parent2[3][1]], [parent1[4][0], parent2[4][1]], 0]
+
+        if random.random() > 0.5:
+            if ret[0][cromosome] is 1:
+                ret[0][cromosome] = 0
+            else:
+                ret[0][cromosome] = 1
+        else:
+            if ret[1][cromosome] is 1:
+                ret[1][cromosome] = 0
+            else:
+                ret[1][cromosome] = 1
+
+        return ret
+
+    def _step_a_generation(self):
+        if len(self.activeGeneration) != self.numPopulation: # Dude let this propagate. Something is wrong here.
+            raise ValueError("An early stepping occurred!")
+        return self._checkLevels()
+
+    def _checkLevels(self):
+        asd = []
+        for level in self.activeGeneration:
+            asd.append([level[0], level[1], level[2], level[3], level[4], self._check_level(level[0], level[1], level[2], level[3], level[4])])
+        asd = bubblesort(asd)
+        return asd[self.numElites:]
+
+    def _check_level(self, genome_x, genome_y, genome_av, genome_op, genome_po):
+        g = spinner.NewGenomeBinarySpinClass(genome_x, genome_y, genome_av, genome_op, genome_po)
+        g.generate_compile_spin()
+        p = parser.ParserClass()
+
+        try:
+            avatar_moves = p.main_functionality()
+        except ValueError:
+            return -1000
+
+        game = player.skeleton_game.format(immovable="", mover="", chaser=player.chaser_str)
+        pp = player.GameClass(actions_list=avatar_moves, game_desc=game, level_desc=g.mazify())
+
+        fitness = len(avatar_moves) * pp.play()
+
+        query = "INSERT INTO gengame (genome_x, genome_y, genome_av, genome_op, genome_po, level, fitness, moves) VALUES ({},{},{},{},{},{},{},{})".format(genome_x, genome_y, genome_av, genome_op, genome_po, g.mazify(), fitness, avatar_moves)
+        con = sqlite3.connect(self.dbname)
+        con.isolation_level = None
+        cur = con.cursor()
+        cur.execute(query)
+        return fitness
+
+
 class GeneticSimClass:
 
     def __init__(self, simType="Elitistic", databaseLoc=":memory:", numElites=50):
-        # If no database is given, in-RAM db will be used, this is not nice to have btw.
-        # If no simulation type is given, an elitistic simulation will be performed.
-        # If no numElites is given, it is 50. numPopulation is 2*numElites no matter what.
         self.simType = simType
         self.databaseLoc = databaseLoc
         self.numElites = numElites
         self.numPopulation = 2*self.numElites
         self.activeGeneration = []
-        #print(1)
 
     def _connect_db(self):
         self.connection = recorder.EliteSelector(databaseLoc)
@@ -119,7 +210,6 @@ class GeneticSimClass:
         #print(asd[0:self.numElites])
         return asd[self.numElites:]
 
-
     def _check_level(self, genomeX, genomeY):
         g = spinner.GenomeSpinClass(genomeX, genomeY)
         g.generate_compile_spin()
@@ -139,7 +229,6 @@ class GeneticSimClass:
         cur = con.cursor()
         cur.execute(query)
         return fitness  # A More realistic fitness function here
-
 
     def _level_gen_no_parents(self):
         spinning = spinner.GenomeSpinClass()

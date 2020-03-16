@@ -392,6 +392,100 @@ class SpinClass:
         return maze_str
 
 
+class NewGenomeBinarySpinClass(SpinClass):
+    def __init__(self, x_genome=None, y_genome=None, av_genome=None, op_genome=None, po_genome=None):
+        super().__init__()
+
+        if x_genome is None:
+            x_genome = [0, random.randint(0,1), random.randint(0,1), random.randint(0,1), random.randint(0,1), random.randint(0,1), random.randint(0,1), 0]
+        self.x_genome = x_genome
+
+        if y_genome is None:
+            y_genome = [0, random.randint(0,1), random.randint(0,1), random.randint(0,1), random.randint(0,1), random.randint(0,1), random.randint(0,1), 0]
+        self.y_genome = y_genome
+
+        self.av_genome = check_genome(av_genome)
+        self.op_genome = check_genome(self.av_genome, op_genome)
+        self.po_genome = check_genome(self.av_genome, self.op_genome, po_genome)
+
+    def _generate_walls(self):
+        walls = []
+        flag = False
+
+        for index_x, gene_x in enumerate(self.x_genome):
+
+            for index_y, gene_y in enumerate(self.y_genome):
+
+                if gene_x is 1 and gene_y is 1:
+
+                    for sprite in self.list_sprites:
+
+                        if sprite[1] == index_x and sprite[2] == index_y:
+
+                            flag = True
+
+                    if flag is False and not (index_x == 0 or index_x == 7 or index_y == 0 or index_y == 7):
+
+                        walls.append([index_x, index_y])
+
+                    flag = False
+
+                elif (gene_x*gene_y) is 0:
+
+                    continue
+
+        if len(walls) is 0:
+
+            self.wall_string = self.wall_string.format("")
+
+        for wall in walls:
+
+            self.list_sprites.append(["Wall", wall[0], wall[1]])
+            self.wall_string = self.wall_string.format("\tmap[{}].a[{}] = 1;\n{}".format(wall[0], wall[1], "{}"))
+            if walls.index(wall) == (len(walls) - 1):
+                self.wall_string = self.wall_string.format("")
+
+        return self.wall_string
+
+    def generate_compile_spin(self): #THROWS INDEX ERROR DUDE, BE CAREFUL!
+        os.system("mkdir spin > /dev/null 2>&1")
+        os.system("rm spin/temp.pml > /dev/null 2>&1")
+
+        f = open("spin/temp.pml", "a")
+        f.write(self._generate_all())
+        f.close()
+
+        os.system("spin -a spin/temp.pml > /dev/null 2>&1")
+        proc = subprocess.Popen(["gcc pan.c -DREACH -o temp.out"], stdout=subprocess.PIPE, shell=True)
+        (out, err) = proc.communicate()
+        if out != b'':
+            raise IndexError("Cannot compile!")
+        os.system("./temp.out -a -i -m3000 > /dev/null 2>&1")
+
+
+def get_rand_genome():
+    return [random.randint(1,6), random.randint(1,6)]
+
+def check_genome(genome_1, genome_2=None, genome_3=None):
+    if genome_2 is None:
+        if genome_1 is None:
+            return get_rand_genome()
+        else:
+            return genome_1
+    elif genome_3 is None:
+        if genome_1 == genome_2:
+            genome_1 = get_rand_genome()
+            return check_genome(genome_1, genome_2)
+        else:
+            return genome_1
+    else:
+        if genome_1 == genome_2 or genome_1==genome_3:
+            genome_1 = get_rand_genome()
+            return check_genome(genome_1, genome_2, genome_3)
+        else:
+            return genome_1
+
+
 
 class GenomeSpinClass(SpinClass):
     def __init__(self, genomeX=None, genomeY=None, isBinary=True): #if genomes are None, just produce a random genome.
@@ -483,6 +577,6 @@ class GenomeSpinClass(SpinClass):
 
 
 if __name__ == "__main__":
-    spinner = GenomeSpinClass()
+    spinner = NewGenomeBinarySpinClass()
     spinner.generate_compile_spin()
     print(spinner.mazify())
