@@ -76,7 +76,7 @@ class NewGeneticSimClass:
         self.activeGeneration = []
 
         if database is None: #Initialize the default database
-            self.dbname = "n_gen.db"
+            self.dbname = "onur.db"
             self.__init_connect_db()
         else:
             self.dbname = database
@@ -86,10 +86,12 @@ class NewGeneticSimClass:
         self.connection = recorder.EliteSelector(self.dbname)
 
     def __init_connect_db(self):
+        pass
 
     def generate_a_generation(self):
         if len(self.activeGeneration) is 0:
             while len(self.activeGeneration) < self.numPopulation:
+                print(len(self.activeGeneration))
                 self._level_gen_no_parents()
 
         elif len(self.activeGeneration) is self.numElites:
@@ -104,7 +106,7 @@ class NewGeneticSimClass:
     def _level_gen_no_parents(self):
         s = spinner.NewGenomeBinarySpinClass()
         s.generate_compile_spin()
-        self.activeGeneration.append([s.genomeX, s.genomeY, s.av_genome, s.op_genome, s.po_genome 0])
+        self.activeGeneration.append([s.x_genome, s.y_genome, s.av_genome, s.op_genome, s.po_genome, 0])
 
     def _level_gen_with_parents(self, parent1, parent2, mutationChance=0.2):
         if random.random() > mutationChance: #This is not that cool of a crossing.
@@ -156,7 +158,8 @@ class NewGeneticSimClass:
 
         fitness = len(avatar_moves) * pp.play()
 
-        query = "INSERT INTO gengame (genome_x, genome_y, genome_av, genome_op, genome_po, level, fitness, moves) VALUES ({},{},{},{},{},{},{},{})".format(genome_x, genome_y, genome_av, genome_op, genome_po, g.mazify(), fitness, avatar_moves)
+        query = "INSERT INTO gengame (genome_x, genome_y, genome_av, genome_op, genome_po, level, fitness, moves) VALUES ('{}','{}','{}','{}','{}','{}',{},'{}')".format(genome_x, genome_y, genome_av, genome_op, genome_po, g.mazify(), fitness, avatar_moves)
+        print(query)
         con = sqlite3.connect(self.dbname)
         con.isolation_level = None
         cur = con.cursor()
@@ -274,10 +277,24 @@ def printall_generation(gen):
     print("Gen_end")
 
 if __name__ == "__main__":
+#    query = """CREATE TABLE gengame (
+#    id INTEGER PRIMARY KEY AUTOINCREMENT,
+#    genome_x text NOT NULL,
+#    genome_y text NOT NULL,
+#    genome_av text NOT NULL,
+#    genome_op text NOT NULL,
+#    genome_po text NOT NULL,
+#    level text NOT NULL,
+#    fitness INTEGER DEFAULT 0,
+#    moves text NOT NULL);"""
+#    con = sqlite3.connect("onur.db")
+#    cur = con.cursor()
+#    cur.execute(query)
     #s = GeneticSimClass()
     #for i in range(1,100):
     #    s.generate_a_generation()
     #    printall_generation(bubblesort(s.activeGeneration))
+    s = NewGeneticSimClass()
     for i in range(1,10000):
-        s = SimClass()
-        s.main_functionality()
+
+        s.generate_a_generation()
