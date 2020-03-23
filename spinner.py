@@ -37,6 +37,96 @@ chan opponent_turn = [0] of {byte, byte}; //the opposite randez-vous. If portal'
 chan opponent_turn2 = [0] of {bit};
 """
 
+promela_header_same_goal = """
+typedef row{ //2D arrays are not supported directly.
+  byte a[8];
+}
+bit win = 0; //Becomes 1 when maze is won.
+bit dead = 0; //Becomes 1 when maze is lost.
+bit turn = 0; //0->opponent, 1->us
+bit lock = 0;
+row map[8]; //This is a 2D array.
+"""
+
+promela_avatar_same_goal = """
+proctype avatar_same_goal(byte x; byte y){
+  map[x].a[y] = 2;
+  byte w, a, s, d;
+  bit foo;
+  //bool start = true;
+  do
+  ::((win == 0) && (dead == 0)) ->
+
+    lock;
+
+		if
+		:: dead == 1 -> break //Dude cannot win on opponent's turn anyways.
+    :: else -> skip
+		fi;
+    //Look-up:
+    w = map[x].a[y-1];
+    a = map[x-1].a[y];
+    s = map[x].a[y+1];
+    d = map[x+1].a[y];
+
+    if
+    :: ((w != 1) && (w != 4)) -> printf("Avatar - W\\n");
+
+      if
+      :: w == 0 -> //Moved to an empty cell
+        map[x].a[y] = 0;
+				map[x].a[y-1] = 2;
+				y = y - 1
+			:: w == 3 -> //Moved to the goal, we won zulul
+				win = 1
+			fi
+
+    :: ((a != 1) && (a != 4)) -> printf("Avatar - A\\n");
+
+			if
+			:: a == 0 -> //Moved to an empty cell
+        map[x].a[y] = 0;
+				map[x-1].a[y] = 2;
+				x = x - 1
+			:: a == 3 -> //Moved to the goal, we won zulul
+				win = 1
+			fi
+
+    :: ((s != 1) && (s != 4)) -> printf("Avatar - S\\n");
+
+			if
+			:: s == 0 -> //Moved to an empty cell
+        map[x].a[y] = 0;
+				map[x].a[y+1] = 2;
+				y = y + 1
+			:: s == 3 -> //Moved to the goal, we won zulul
+				win = 1
+			fi
+
+    :: ((d != 1) && (d != 4)) -> printf("Avatar - D\\n");
+
+			if
+			:: d == 0 -> //Moved to an empty cell
+        map[x].a[y] = 0;
+				map[x+1].a[y] = 2;
+				x = x + 1
+			:: d == 3 -> //Moved to the goal, we won zulul
+				win = 1
+			fi
+
+		:: true -> skip
+    fi;
+		lock = 0;
+  :: else ->	break
+  od;
+  //In game of thrones, you either win or die
+	if
+	:: (win == 1) -> printf("Avatar - Win\\n");
+	:: (dead == 1) -> printf("Avatar - Dead\\n");
+	fi;
+  lock = 0
+}
+"""
 
 promela_avatar_basic = """
 proctype avatar(byte x; byte y){
@@ -141,6 +231,124 @@ proctype avatar(byte x; byte y){
 	:: (dead == 1) -> printf("Avatar - Dead\\n");
 		//TODO: Send that you lost
 	fi
+}
+"""
+
+promela_opponent_same_goal = """
+proctype opponent_same_goal(byte x; byte y; byte xx; byte yy){ //Works on a global turn variable
+  map[x].a[y] = 4;
+  byte w, a, s, d;
+
+  do
+
+  ::((win == 0) && (dead == 0)) -> //Play on
+
+    !lock;
+
+    if
+    :: win == 1 -> break; //Dude cannot lost on its turn.
+    :: else -> skip
+    fi
+
+    w = map[x].a[y-1];
+    a = map[x-1].a[y];
+    s = map[x].a[y+1];
+    d = map[x+1].a[y];
+
+    if
+
+    :: (y > yy) ->
+        if
+        :: (w != 1) && (w != 2) ->
+            printf("Opponent - W\\n");
+            map[x].a[y] = 0;
+            y = y - 1;
+            map[x].a[y] = 4
+        :: else -> skip
+        fi;
+
+    :: else ->
+
+        if
+
+        :: (x > xx) ->
+            if
+            :: (a != 1) && (a != 2) ->
+                printf("Opponent - A\\n");
+                map[x].a[y] = 0;
+                x = x - 1;
+                map[x].a[y] = 4
+            :: else -> skip
+            fi;
+
+        :: else ->
+            if
+            :: (y < yy) ->
+                if
+                :: (s != 1) && (s != 2) ->
+                    printf("Opponent - S\\n");
+                    map[x].a[y] = 0;
+                    y = y + 1;
+                    map[x].a[y] = 4
+                :: else -> skip
+                fi;
+            :: else ->
+
+                if
+
+                :: (x < xx) ->
+                    if
+                    ::  (d != 1) && (d != 2) ->
+                        printf("Opponent - D\\n");
+                        map[x].a[y] = 0;
+                        x = x + 1;
+                        map[x].a[y] = 4
+                    :: else -> skip
+                    fi;
+
+                :: else -> skip
+
+                fi;
+
+            fi;
+
+        fi;
+
+    fi;
+    //Movement ended here. Check if you win.
+
+    if
+
+    :: ((x == xx) && (y == yy)) -> //Stomped on it dude. No need to play anymore.
+
+      dead = 1;
+      break
+
+    :: else -> //Avatar survived.
+
+      skip
+
+    fi;
+
+    lock = 1;
+
+  :: else -> break
+
+  od;
+
+  if
+
+  :: win == 1 ->
+
+    printf("Opponent - Win\\n")
+
+  :: dead == 1 ->
+
+    printf("Opponent - Dead\\n")
+
+  fi
+
+  lock = 1
 }
 """
 
@@ -260,6 +468,31 @@ promela_ltl_formula_basic = """
 ltl  { [] !win };
 """
 
+promela_init_same_goal = """
+init{{
+    byte i, ii;
+    for (i : 0 .. 7) {{
+        // Initialize walls
+        map[7].a[i] = 1;
+        map[0].a[i] = 1;
+        map[i].a[0] = 1;
+        map[i].a[7] = 1;
+    }}
+    for (i : 1 .. 6) {{
+        for (ii : 1 .. 6) {{
+            // Initialize floors
+            map[i].a[ii] = 0;
+        }}
+    }}
+    //Generic placement of walls
+    {}
+    //Place portal
+    map[{}].a[{}] = 3;
+    run avatar_same_goal({},{});
+    run opponent_same_goal({},{},{},{});
+
+}}
+"""
 
 promela_init = """
 init{{
@@ -391,7 +624,6 @@ class SpinClass:
 
         return maze_str
 
-
 class NewGenomeBinarySpinClass(SpinClass):
     def __init__(self, x_genome=None, y_genome=None, av_genome=None, op_genome=None, po_genome=None):
         super().__init__()
@@ -462,7 +694,6 @@ class NewGenomeBinarySpinClass(SpinClass):
             raise IndexError("Cannot compile!")
         os.system("./temp.out -a -i -m3000 > /dev/null 2>&1")
 
-
 def get_rand_genome():
     return [random.randint(1,6), random.randint(1,6)]
 
@@ -484,8 +715,6 @@ def check_genome(genome_1, genome_2=None, genome_3=None):
             return check_genome(genome_1, genome_2, genome_3)
         else:
             return genome_1
-
-
 
 class GenomeSpinClass(SpinClass):
     def __init__(self, genomeX=None, genomeY=None, isBinary=True): #if genomes are None, just produce a random genome.
@@ -575,8 +804,25 @@ class GenomeSpinClass(SpinClass):
         os.system("gcc pan.c -DREACH -o temp.out ")
         os.system("./temp.out -a -i -m3000 >/dev/null 2>&1")
 
+class SameGoalNewGenomeBinarySpinClass(NewGenomeBinarySpinClass):
+    def __init__(self, x_genome=None, y_genome=None, av_genome=None, op_genome=None, po_genome=None):
+        super().__init__(x_genome, y_genome, av_genome, op_genome, po_genome)
+
+    def _generate_all(self):
+
+        li = self._generate_portal_avatar_opponent()
+        temp_p = ["Portal", li[0], li[1]]
+        temp_a = ["Avatar", li[2], li[3]]
+        temp_o = ["Opponent", li[4], li[5]]
+        self.list_sprites.append(temp_p)
+        self.list_sprites.append(temp_a)
+        self.list_sprites.append(temp_o)
+
+        formatted_init = promela_init_same_goal.format(self._generate_walls(), li[0], li[1], li[2], li[3], li[4], li[5], li[0], li[1])
+        self.promela_whole_file = self.promela_whole_file.format(promela_comment_01, promela_comment_02, promela_header_same_goal, promela_avatar_same_goal, promela_opponent_same_goal, formatted_init, promela_ltl_formula_basic)
+        return self.promela_whole_file
 
 if __name__ == "__main__":
-    spinner = NewGenomeBinarySpinClass()
+    spinner = SameGoalNewGenomeBinarySpinClass()
     spinner.generate_compile_spin()
     print(spinner.mazify())
